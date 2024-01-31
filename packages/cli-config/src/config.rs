@@ -448,6 +448,42 @@ impl CrateConfig {
         self.crate_dir.join(&self.dioxus_config.application.out_dir)
     }
 
+    // /// Compose a path to hot reload socket file.
+    // pub fn hot_reload_path(&self) -> PathBuf {
+    //     dbg!("hot_reload_path()");
+    //     dbg!(self.target_dir.join("dioxusin"));
+    //     self.target_dir.join("dioxusin")
+    // }
+    //
+    // /// Compose a path to hot reload socket file (fullstack-only?).
+    // pub fn fullstack_hot_reload_path(&self) -> PathBuf {
+    //     dbg!("fullstack_hot_reload_path()");
+    //     dbg!(self.server_target_dir().join("dioxusin"));
+    //     self.server_target_dir().join("dioxusin")
+    // }
+
+    /// Compose an out directory for the fullstack platform. See `out_dir()`
+    /// method.
+    pub fn fullstack_out_dir(&self) -> PathBuf {
+        dbg!("fullstack_out_dir()");
+        dbg!(self.crate_dir.join(".dioxus"));
+        self.crate_dir.join(".dioxus")
+    }
+
+    /// Compose a target directory for the server (fullstack-only?).
+    pub fn server_target_dir(&self) -> PathBuf {
+        dbg!("server_target_dir()");
+        dbg!(self.fullstack_out_dir().join("ssr"));
+        self.fullstack_out_dir().join("ssr")
+    }
+
+    /// Compose a target directory for the client (fullstack-only?).
+    pub fn client_target_dir(&self) -> PathBuf {
+        dbg!("client_target_dir()");
+        dbg!(self.fullstack_out_dir().join("web"));
+        self.fullstack_out_dir().join("web")
+    }
+
     pub fn as_example(&mut self, example_name: String) -> &mut Self {
         self.executable = ExecutableType::Example(example_name);
         self

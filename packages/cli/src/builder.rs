@@ -3,6 +3,7 @@ use crate::{
     error::{Error, Result},
     tools::Tool,
 };
+use anyhow::Context;
 use cargo_metadata::{diagnostic::Diagnostic, Message};
 use dioxus_cli_config::crate_root;
 use dioxus_cli_config::CrateConfig;
@@ -15,7 +16,7 @@ use std::{
     io::Read,
     panic,
     path::PathBuf,
-    time::Duration,
+    time::Duration, env,
 };
 use wasm_bindgen_cli_support::Bindgen;
 
@@ -31,6 +32,7 @@ pub struct BuildResult {
 }
 
 pub fn build(config: &CrateConfig, _: bool, skip_assets: bool) -> Result<BuildResult> {
+    dbg!("build() (web/wasm)");
     // [1] Build the project with cargo, generating a wasm32-unknown-unknown target (is there a more specific, better target to leverage?)
     // [2] Generate the appropriate build folders
     // [3] Wasm-bindgen the .wasm file, and move it into the {builddir}/modules/xxxx/xxxx_bg.wasm
@@ -111,6 +113,10 @@ pub fn build(config: &CrateConfig, _: bool, skip_assets: bool) -> Result<BuildRe
         ExecutableType::Lib(name) => cmd.arg("--lib").arg(name),
         ExecutableType::Example(name) => cmd.arg("--example").arg(name),
     };
+
+    dbg!(env::vars().map(|(key, value)| format!("|{key}|=|{value}|")).collect::<Vec<_>>());
+
+    dbg!(&cmd);
 
     let warning_messages = prettier_build(cmd)?;
 
@@ -288,6 +294,7 @@ pub fn build_desktop(
     _is_serve: bool,
     skip_assets: bool,
 ) -> Result<BuildResult> {
+    dbg!("build_desktop() (server/ssr)");
     log::info!("🚅 Running build [Desktop] command...");
 
     let t_start = std::time::Instant::now();
@@ -334,6 +341,11 @@ pub fn build_desktop(
         ExecutableType::Example(name) => cmd.arg("--example").arg(name),
     };
 
+    dbg!(env::vars().map(|(key, value)| format!("|{key}|=|{value}|")).collect::<Vec<_>>());
+
+    dbg!(&cmd);
+
+
     let warning_messages = prettier_build(cmd)?;
 
     let release_type = match config.release {
@@ -369,10 +381,17 @@ pub fn build_desktop(
         file_name
     };
 
-    if !config.out_dir().is_dir() {
-        create_dir_all(config.out_dir())?;
+    let out_dir = config.out_dir();
+    if !out_dir.is_dir() {
+        create_dir_all(&out_dir)?;
     }
-    copy(res_path, config.out_dir().join(target_file))?;
+    let target_path = out_dir.join(&target_file);
+    copy(&res_path, &target_path).context(format!(
+        "Couldn't copy the server binary from {:?} to {:?}. Maybe the server process ({}) wasn't killed and is still running.",
+        res_path,
+        target_path,
+        target_file
+    ))?;
 
     // this code will copy all public file to the output dir
     if config.asset_dir().is_dir() {

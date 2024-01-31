@@ -14,6 +14,7 @@ use dioxus_hot_reload::HotReloadMsg;
 use dioxus_html::HtmlCtx;
 use dioxus_rsx::hot_reload::*;
 use interprocess_docfix::local_socket::LocalSocketListener;
+use std::fs::create_dir;
 use std::{
     process::{Child, Command},
     sync::{Arc, Mutex, RwLock},
@@ -109,8 +110,11 @@ async fn start_desktop_hot_reload(hot_reload_state: HotReloadState) -> Result<()
         .exec()
         .unwrap();
     let target_dir = metadata.target_directory.as_std_path();
+    // do we need create_dir_all()?
+    let _ = create_dir(target_dir);
     let path = target_dir.join("dioxusin");
     clear_paths(&path);
+    dbg!("couldn't bind to this path:", &path);
     match LocalSocketListener::bind(path) {
         Ok(local_socket_stream) => {
             let aborted = Arc::new(Mutex::new(false));
@@ -180,9 +184,10 @@ async fn start_desktop_hot_reload(hot_reload_state: HotReloadState) -> Result<()
                     }
                 }
             }
+            Ok(())
         }
-        Err(error) => println!("failed to connect to hot reloading\n{error}"),
-    }
+        Err(error) => Err(anyhow::Error::new(error).context("Failed to connect to hot reloading")),
+    }?;
 
     Ok(())
 }
@@ -214,6 +219,7 @@ fn send_msg(msg: HotReloadMsg, channel: &mut impl std::io::Write) -> bool {
 }
 
 fn start_desktop(config: &CrateConfig, skip_assets: bool) -> Result<(RAIIChild, BuildResult)> {
+    dbg!("inside start_desktop()");
     // Run the desktop application
     let result = crate::builder::build_desktop(config, true, skip_assets)?;
 
@@ -244,6 +250,7 @@ pub(crate) struct DesktopPlatform {
 
 impl Platform for DesktopPlatform {
     fn start(config: &CrateConfig, serve: &ConfigOptsServe) -> Result<Self> {
+        dbg!("impl Platform for DesktopPlatform -> start()");
         let (child, first_build_result) = start_desktop(config, serve.skip_assets)?;
 
         log::info!("🚀 Starting development server...");
@@ -266,6 +273,7 @@ impl Platform for DesktopPlatform {
     }
 
     fn rebuild(&mut self, config: &CrateConfig) -> Result<BuildResult> {
+        dbg!("impl Platform for DesktopPlatform -> rebuild()");
         self.currently_running_child.0.kill()?;
         let (child, result) = start_desktop(config, self.skip_assets)?;
         self.currently_running_child = child;

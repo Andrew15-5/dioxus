@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader},
-    path::PathBuf,
+    path::PathBuf, env, fs::create_dir,
 };
 
 use dioxus_core::Template;
@@ -26,8 +26,15 @@ pub enum HotReloadMsg {
 
 /// Connect to the hot reloading listener. The callback provided will be called every time a template change is detected
 pub fn connect(mut f: impl FnMut(HotReloadMsg) + Send + 'static) {
+    dbg!("connect()");
     std::thread::spawn(move || {
-        let path = PathBuf::from("./").join("target").join("dioxusin");
+        dbg!("inside the connect() thread");
+        dbg!(PathBuf::from("./").join("target").join("dioxusin"));
+        let target_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("target");
+        dbg!(&target_dir);
+        // do we need create_dir_all()?
+        // let _ = create_dir(&target_dir);
+        let path = target_dir.join("dioxusin");
         if let Ok(socket) = LocalSocketStream::connect(path) {
             let mut buf_reader = BufReader::new(socket);
             loop {

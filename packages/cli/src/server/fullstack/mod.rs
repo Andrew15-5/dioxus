@@ -17,9 +17,23 @@ fn start_web_build_thread(
     serve: &ConfigOptsServe,
 ) -> std::thread::JoinHandle<Result<()>> {
     let serve = serve.clone();
-    let target_directory = config.crate_dir.join(".dioxus").join("web");
+    let target_directory = config.client_target_dir();
     std::fs::create_dir_all(&target_directory).unwrap();
     std::thread::spawn(move || build_web(serve, &target_directory))
+}
+
+fn make_desktop_config(config: &CrateConfig, serve: &ConfigOptsServe) -> CrateConfig {
+    let mut desktop_config = config.clone();
+    desktop_config.target_dir = config.server_target_dir();
+    let desktop_feature = serve.server_feature.clone();
+    let features = &mut desktop_config.features;
+    match features {
+        Some(features) => {
+            features.push(desktop_feature);
+        }
+        None => desktop_config.features = Some(vec![desktop_feature]),
+    };
+    desktop_config
 }
 
 struct FullstackPlatform {
@@ -33,17 +47,10 @@ impl Platform for FullstackPlatform {
     where
         Self: Sized,
     {
+        dbg!("impl Platform for FullstackPlatform -> start()");
         let thread_handle = start_web_build_thread(config, serve);
 
-        let mut desktop_config = config.clone();
-        let desktop_feature = serve.server_feature.clone();
-        let features = &mut desktop_config.features;
-        match features {
-            Some(features) => {
-                features.push(desktop_feature);
-            }
-            None => desktop_config.features = Some(vec![desktop_feature]),
-        };
+        let desktop_config = make_desktop_config(config, serve);
         let config = WebAssetConfigDropGuard::new();
         let desktop = desktop::DesktopPlatform::start(&desktop_config, serve)?;
         thread_handle
@@ -58,17 +65,10 @@ impl Platform for FullstackPlatform {
     }
 
     fn rebuild(&mut self, crate_config: &CrateConfig) -> Result<crate::BuildResult> {
+        dbg!("impl Platform for FullstackPlatform -> rebuild()");
         let thread_handle = start_web_build_thread(crate_config, &self.serve);
         let result = {
-            let mut desktop_config = crate_config.clone();
-            let desktop_feature = self.serve.server_feature.clone();
-            let features = &mut desktop_config.features;
-            match features {
-                Some(features) => {
-                    features.push(desktop_feature);
-                }
-                None => desktop_config.features = Some(vec![desktop_feature]),
-            };
+            let desktop_config = make_desktop_config(crate_config, &self.serve);
             let _gaurd = FullstackServerEnvGuard::new(self.serve.force_debug, self.serve.release);
             self.desktop.rebuild(&desktop_config)
         };
