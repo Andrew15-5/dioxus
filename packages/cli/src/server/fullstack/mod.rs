@@ -1,7 +1,6 @@
 use dioxus_cli_config::CrateConfig;
 
 use crate::{
-    assets::WebAssetConfigDropGuard,
     cfg::{ConfigOptsBuild, ConfigOptsServe},
     Result,
 };
@@ -39,7 +38,6 @@ fn make_desktop_config(config: &CrateConfig, serve: &ConfigOptsServe) -> CrateCo
 struct FullstackPlatform {
     serve: ConfigOptsServe,
     desktop: desktop::DesktopPlatform,
-    _config: WebAssetConfigDropGuard,
 }
 
 impl Platform for FullstackPlatform {
@@ -51,8 +49,10 @@ impl Platform for FullstackPlatform {
         let thread_handle = start_web_build_thread(config, serve);
 
         let desktop_config = make_desktop_config(config, serve);
-        let config = WebAssetConfigDropGuard::new();
-        let desktop = desktop::DesktopPlatform::start(&desktop_config, serve)?;
+        let desktop = {
+            // let _guard = FullstackServerEnvGuard::new(&serve.clone().into());
+            desktop::DesktopPlatform::start(&desktop_config, serve)?
+        };
         thread_handle
             .join()
             .map_err(|_| anyhow::anyhow!("Failed to join thread"))??;
@@ -60,7 +60,6 @@ impl Platform for FullstackPlatform {
         Ok(Self {
             desktop,
             serve: serve.clone(),
-            _config: config,
         })
     }
 
@@ -69,7 +68,7 @@ impl Platform for FullstackPlatform {
         let thread_handle = start_web_build_thread(crate_config, &self.serve);
         let result = {
             let desktop_config = make_desktop_config(crate_config, &self.serve);
-            let _gaurd = FullstackServerEnvGuard::new(self.serve.force_debug, self.serve.release);
+            // let _guard = FullstackServerEnvGuard::new(&self.serve.clone().into());
             self.desktop.rebuild(&desktop_config)
         };
         thread_handle
@@ -91,7 +90,7 @@ fn build_web(serve: ConfigOptsServe, target_directory: &std::path::Path) -> Resu
     };
     web_config.platform = Some(dioxus_cli_config::Platform::Web);
 
-    let _gaurd = FullstackWebEnvGuard::new(&web_config);
+    // let _guard = FullstackWebEnvGuard::new(&web_config);
     crate::cli::build::Build { build: web_config }.build(None, Some(target_directory))
 }
 
@@ -102,11 +101,12 @@ pub(crate) struct FullstackWebEnvGuard {
 }
 
 impl FullstackWebEnvGuard {
-    pub fn new(serve: &ConfigOptsBuild) -> Self {
+    // serve should be for ConfigOptsServe
+    pub fn new(build: &ConfigOptsBuild) -> Self {
         Self {
-            old_rustflags: (!serve.force_debug).then(|| {
+            old_rustflags: (!build.force_debug).then(|| {
                 let old_rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
-                let debug_assertions = if serve.release {
+                let debug_assertions = if build.release {
                     ""
                 } else {
                     " -C debug-assertions"
@@ -139,11 +139,16 @@ pub(crate) struct FullstackServerEnvGuard {
 }
 
 impl FullstackServerEnvGuard {
-    pub fn new(debug: bool, release: bool) -> Self {
+    // serve should be for ConfigOptsServe
+    pub fn new(build: &ConfigOptsBuild) -> Self {
         Self {
-            old_rustflags: (!debug).then(|| {
+            old_rustflags: (!build.force_debug).then(|| {
                 let old_rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
-                let debug_assertions = if release { "" } else { " -C debug-assertions" };
+                let debug_assertions = if build.release {
+                    ""
+                } else {
+                    " -C debug-assertions"
+                };
 
                 std::env::set_var(
                     "RUSTFLAGS",

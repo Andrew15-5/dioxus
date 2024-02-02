@@ -62,8 +62,7 @@ impl Build {
                 let _config = WebAssetConfigDropGuard::new();
                 {
                     let mut web_config = crate_config.clone();
-                    let _gaurd = FullstackWebEnvGuard::new(&self.build);
-                    let web_feature = self.build.client_feature;
+                    let web_feature = self.build.client_feature.clone();
                     let features = &mut web_config.features;
                     match features {
                         Some(features) => {
@@ -71,11 +70,13 @@ impl Build {
                         }
                         None => web_config.features = Some(vec![web_feature]),
                     };
+                    // used only for dx build
+                    // let _guard = FullstackWebEnvGuard::new(&self.build);
                     crate::builder::build(&crate_config, false, self.build.skip_assets)?;
                 }
                 {
                     let mut desktop_config = crate_config.clone();
-                    let desktop_feature = self.build.server_feature;
+                    let desktop_feature = self.build.server_feature.clone();
                     let features = &mut desktop_config.features;
                     match features {
                         Some(features) => {
@@ -83,8 +84,9 @@ impl Build {
                         }
                         None => desktop_config.features = Some(vec![desktop_feature]),
                     };
-                    let _gaurd =
-                        FullstackServerEnvGuard::new(self.build.force_debug, self.build.release);
+                    // used only for dx build
+                    // let _guard =
+                    //     FullstackServerEnvGuard::new(&self.build);
                     crate::builder::build_desktop(&desktop_config, false, self.build.skip_assets)?
                 }
             }

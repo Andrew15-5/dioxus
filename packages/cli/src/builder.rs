@@ -31,6 +31,7 @@ pub struct BuildResult {
     pub assets: Option<AssetManifest>,
 }
 
+/// Build client (WASM).
 pub fn build(config: &CrateConfig, _: bool, skip_assets: bool) -> Result<BuildResult> {
     dbg!("build() (web/wasm)");
     // [1] Build the project with cargo, generating a wasm32-unknown-unknown target (is there a more specific, better target to leverage?)
@@ -73,8 +74,11 @@ pub fn build(config: &CrateConfig, _: bool, skip_assets: bool) -> Result<BuildRe
             .output()?;
     }
 
+    let old_rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
     let cmd = subprocess::Exec::cmd("cargo")
         .env("CARGO_TARGET_DIR", target_dir)
+        .env("RUSTFLAGS", "-C debuginfo=none -C strip=debuginfo -C debug-assertions")
+        // .env("RUSTFLAGS", "-C debuginfo=none -C strip=debuginfo -C debug-assertions ".to_string() + old_rustflags.as_str())
         .cwd(crate_dir)
         .arg("build")
         .arg("--target")
@@ -259,8 +263,8 @@ pub fn build(config: &CrateConfig, _: bool, skip_assets: bool) -> Result<BuildRe
             } else {
                 match fs_extra::dir::copy(&path, &out_dir, &copy_options) {
                     Ok(_) => {}
-                    Err(_e) => {
-                        log::warn!("Error copying dir: {}", _e);
+                    Err(e) => {
+                        log::warn!("Error copying dir: {}", e);
                     }
                 }
                 for ignore in &ignore_files {
@@ -302,8 +306,11 @@ pub fn build_desktop(
     let _guard = dioxus_cli_config::__private::save_config(config);
     let _manganis_support = ManganisSupportGuard::default();
 
+    let old_rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
     let mut cmd = subprocess::Exec::cmd("cargo")
         .env("CARGO_TARGET_DIR", &config.target_dir)
+        .env("RUSTFLAGS", "-C opt-level=2 -C debug-assertions")
+        // .env("RUSTFLAGS", "-C opt-level=2 -C debug-assertions ".to_string() + old_rustflags.as_str())
         .cwd(&config.crate_dir)
         .arg("build")
         .arg("--message-format=json");
@@ -407,9 +414,9 @@ pub fn build_desktop(
         for entry in std::fs::read_dir(config.asset_dir())? {
             let path = entry?.path();
             if path.is_file() {
-                std::fs::copy(&path, &config.out_dir().join(path.file_name().unwrap()))?;
+                std::fs::copy(&path, out_dir.join(path.file_name().unwrap()))?;
             } else {
-                match fs_extra::dir::copy(&path, &config.out_dir(), &copy_options) {
+                match fs_extra::dir::copy(&path, &out_dir, &copy_options) {
                     Ok(_) => {}
                     Err(e) => {
                         log::warn!("Error copying dir: {}", e);
@@ -417,7 +424,7 @@ pub fn build_desktop(
                 }
                 for ignore in &ignore_files {
                     let ignore = ignore.strip_prefix(&config.asset_dir()).unwrap();
-                    let ignore = config.out_dir().join(ignore);
+                    let ignore = out_dir.join(ignore);
                     if ignore.is_file() {
                         std::fs::remove_file(ignore)?;
                     }
@@ -508,7 +515,7 @@ fn prettier_build(cmd: subprocess::Exec) -> anyhow::Result<Vec<Diagnostic>> {
 }
 
 pub fn gen_page(config: &CrateConfig, manifest: Option<&AssetManifest>, serve: bool) -> String {
-    let _gaurd = WebAssetConfigDropGuard::new();
+    let _guard = WebAssetConfigDropGuard::new();
 
     let crate_root = crate_root().unwrap();
     let custom_html_file = crate_root.join("index.html");
