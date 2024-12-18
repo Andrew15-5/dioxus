@@ -162,14 +162,14 @@ impl LaunchBuilder {
         {
             use dioxus_fullstack::prelude::server_fn::client::{get_server_url, set_server_url};
             if get_server_url().is_empty() {
-                let ip = if cfg!(target_os = "android") {
-                    "10.0.2.2"
-                } else {
-                    "127.0.0.1"
-                };
+                // TODO: Find a way to set/pass the correct (host and) port.
+                // TODO: Add a warning in CLI/docs that for Android yo can't use other host yet.
+                let ip = "127.0.0.1";
 
                 let serverurl = format!(
                     "http://{ip}:{}",
+                    // Should use dioxus_cli_config::SERVER_PORT_ENV,
+                    // but dioxus_cli_config is not found.
                     std::env::var("PORT").unwrap_or_else(|_| "8080".to_string())
                 )
                 .leak();

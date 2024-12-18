@@ -128,7 +128,7 @@ impl AppHandle {
 
             // https://developer.android.com/studio/run/emulator-commandline
             Platform::Android => {
-                self.open_android_sim(envs).await?;
+                self.open_android_sim(devserver_ip, envs).await?;
                 None
             }
 
@@ -486,12 +486,27 @@ impl AppHandle {
         unimplemented!("dioxus-cli doesn't support ios devices yet.")
     }
 
-    async fn open_android_sim(&self, envs: Vec<(&'static str, String)>) -> Result<()> {
+    async fn open_android_sim(
+        &self,
+        devserver_socket: SocketAddr,
+        envs: Vec<(&'static str, String)>,
+    ) -> Result<()> {
         let apk_path = self.app.apk_path();
         let full_mobile_app_name = self.app.build.krate.full_mobile_app_name();
 
         // Start backgrounded since .open() is called while in the arm of the top-level match
         tokio::task::spawn(async move {
+            let port = devserver_socket.port();
+            Command::new("adb")
+                .arg("reverse")
+                .arg(format!("tcp:{}", port))
+                .arg(format!("tcp:{}", port))
+                .stderr(Stdio::piped())
+                .stdout(Stdio::piped())
+                .output()
+                .await
+                .with_context(|| "failed to forward port {port}")?;
+
             // Install
             // adb install -r app-debug.apk
             let _output = Command::new("adb")
