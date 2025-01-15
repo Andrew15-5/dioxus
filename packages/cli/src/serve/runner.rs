@@ -146,15 +146,20 @@ impl AppRunner {
     }
 
     /// Open an existing app bundle, if it exists
-    pub(crate) async fn open_existing(&mut self, devserver: &WebServer) -> Result<()> {
+    pub(crate) async fn open_existing(&mut self, devserver: &WebServer) -> Result<bool> {
         if let Some((_, app)) = self
             .running
             .iter_mut()
             .find(|(platform, _)| **platform != Platform::Server)
         {
+            tracing::debug!("Re-opening the app...");
+            // Why `open_browser` is `true`?
             app.open(devserver.devserver_address(), None, true).await?;
+            Ok(true)
+        } else {
+            tracing::debug!("Opening the app because previous one was manually closed...");
+            Ok(false)
         }
-        Ok(())
     }
 
     pub(crate) async fn attempt_hot_reload(

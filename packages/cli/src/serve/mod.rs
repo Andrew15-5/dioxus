@@ -233,8 +233,20 @@ pub(crate) async fn serve_all(mut args: ServeArgs) -> Result<()> {
             }
 
             ServeUpdate::OpenApp => {
-                if let Err(err) = runner.open_existing(&devserver).await {
-                    tracing::error!("Failed to open app: {err}")
+                tracing::trace!("runner.running = {:?}", &runner.running);
+                match runner.open_existing(&devserver).await {
+                    Ok(false) => {
+                        // Copy of ServeUpdate::RequestRebuild:
+                        if cfg!(windows) {
+                            runner.kill_all();
+                        }
+                        builder.rebuild(args.build_arguments.clone());
+                        runner.file_map.force_rebuild();
+                        devserver.send_reload_start().await;
+                        devserver.start_build().await
+                    }
+                    Err(err) => tracing::error!("Failed to open app: {err}"),
+                    _ => {}
                 }
             }
 

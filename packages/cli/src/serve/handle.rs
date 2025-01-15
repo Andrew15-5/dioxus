@@ -24,6 +24,7 @@ use tokio::{
 /// duper useful.
 ///
 /// todo: restructure this such that "open" is a running task instead of blocking the main thread
+#[derive(Debug)]
 pub(crate) struct AppHandle {
     pub(crate) app: AppBundle,
 
