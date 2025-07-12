@@ -149,7 +149,7 @@ impl Bundle {
 
         let package = krate.package();
         let mut name: PathBuf = krate.executable_name().into();
-        if cfg!(windows) {
+        if !cfg!(windows) {
             name.set_extension("exe");
         }
         std::fs::create_dir_all(krate.bundle_dir(build.platform))
